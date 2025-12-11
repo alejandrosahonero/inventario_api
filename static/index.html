@@ -3,36 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario Pro</title>
+    <title>Inventario SaaS Pro</title>
     
     <link rel="stylesheet" href="styles.css">
-    
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
 
     <div class="container">
+        
         <header>
-            <h1>📦 Control de Inventario</h1>
-            
+            <div class="brand">
+                <i class="ph-fill ph-cube-transparent" style="font-size: 2rem; color: var(--primary);"></i>
+                <div>
+                    <h1>Inventario</h1>
+                    <span class="badge">v2.0 Beta</span>
+                </div>
+            </div>
+
             <div class="header-actions">
                 <div class="view-toggle">
-                    <button id="btnViewTable" class="toggle-btn active" onclick="cambiarVista('table')">📋 Tabla</button>
-                    <button id="btnViewJSON" class="toggle-btn" onclick="cambiarVista('json')">​​​​​​​​​​​​{ } JSON</button>
+                    <button id="btnViewTable" class="toggle-btn active" onclick="cambiarVista('table')">
+                        <i class="ph ph-table"></i>
+                    </button>
+                    <button id="btnViewJSON" class="toggle-btn" onclick="cambiarVista('json')">
+                        <i class="ph ph-code"></i>
+                    </button>
                 </div>
-
-                <button id="btnBackup" class="btn-backup" onclick="exportarDatos()">
-                    ☁️ Guardar Backup
+                <button class="btn-secondary" onclick="exportarDatos()">
+                    <i class="ph ph-cloud-arrow-up"></i> Backup Git
                 </button>
             </div>
         </header>
 
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="icon-box blue"><i class="ph ph-package"></i></div>
+                <div>
+                    <p class="stat-label">Total Productos</p>
+                    <h3 id="statTotalItems">0</h3>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="icon-box green"><i class="ph ph-currency-dollar"></i></div>
+                <div>
+                    <p class="stat-label">Valor Inventario</p>
+                    <h3 id="statTotalValue">$0.00</h3>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="icon-box purple"><i class="ph ph-warning-circle"></i></div>
+                <div>
+                    <p class="stat-label">Bajo Stock (<5)</p>
+                    <h3 id="statLowStock">0</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-box">
+                <i class="ph ph-magnifying-glass"></i>
+                <input type="text" id="searchInput" placeholder="Buscar producto..." onkeyup="filtrarTabla()">
+            </div>
+        </div>
+
         <div class="form-grid">
             <input type="hidden" id="productId">
-            <input type="text" id="name" placeholder="Nombre del producto" autocomplete="off">
-            <input type="number" id="price" placeholder="Precio ($)" step="0.01">
-            <input type="number" id="stock" placeholder="Stock (u)">
-            <button id="saveBtn" class="btn-save" onclick="guardarProducto()">＋ Agregar</button>
+            <div class="input-group">
+                <i class="ph ph-tag"></i>
+                <input type="text" id="name" placeholder="Nombre del producto" autocomplete="off">
+            </div>
+            <div class="input-group">
+                <i class="ph ph-currency-dollar"></i>
+                <input type="number" id="price" placeholder="Precio" step="0.01">
+            </div>
+            <div class="input-group">
+                <i class="ph ph-stack"></i>
+                <input type="number" id="stock" placeholder="Stock">
+            </div>
+            <button id="saveBtn" class="btn-save" onclick="guardarProducto()">
+                <i class="ph ph-plus-circle"></i> <span>Agregar</span>
+            </button>
         </div>
 
         <div id="viewTable" class="table-wrapper fade-in">
@@ -42,7 +96,7 @@
                         <th>Producto</th>
                         <th>Precio</th>
                         <th>Stock</th>
-                        <th style="text-align: right;">Acciones</th>
+                        <th>Estado</th> <th style="text-align: right;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="productTable"></tbody>
@@ -54,7 +108,7 @@
         </div>
 
         <footer>
-            Go + MongoDB + Docker Project
+            <p>Powered by <b>Go</b> + <b>MongoDB</b> + <b>Docker</b></p>
         </footer>
     </div>
 

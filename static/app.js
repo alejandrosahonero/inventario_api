@@ -1,80 +1,59 @@
 const API_URL = '/products';
 let isEditing = false;
-let currentData = []; // Guardamos los datos aquí para usarlos en ambas vistas
+let currentData = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-    cargarProductos();
-});
+document.addEventListener('DOMContentLoaded', cargarProductos);
 
-// --- LÓGICA DE VISTAS ---
-
-function cambiarVista(vista) {
-    const tableDiv = document.getElementById('viewTable');
-    const jsonDiv = document.getElementById('viewJson');
-    const btnTable = document.getElementById('btnViewTable');
-    const btnJson = document.getElementById('btnViewJSON');
-
-    if (vista === 'table') {
-        tableDiv.style.display = 'block';
-        jsonDiv.style.display = 'none';
-        
-        btnTable.classList.add('active');
-        btnJson.classList.remove('active');
-    } else {
-        tableDiv.style.display = 'none';
-        jsonDiv.style.display = 'block';
-        
-        btnTable.classList.remove('active');
-        btnJson.classList.add('active');
-        
-        // Renderizamos el JSON al momento de cambiar
-        renderJSON();
-    }
-}
-
-function renderJSON() {
-    const codeBlock = document.getElementById('jsonCode');
-    // Convertimos el objeto a texto con identación de 2 espacios
-    codeBlock.textContent = JSON.stringify(currentData, null, 2);
-    
-    // Le decimos a Prism que vuelva a colorear el código nuevo
-    if (window.Prism) {
-        Prism.highlightElement(codeBlock);
-    }
-}
-
-// --- API ---
+// --- LÓGICA PRINCIPAL ---
 
 async function cargarProductos() {
     try {
         const res = await fetch(API_URL);
         const products = await res.json();
+        currentData = products;
         
-        currentData = products; // ACTUALIZAMOS LA VARIABLE GLOBAL
+        actualizarDashboard(products); // Nuevas métricas
         renderTable(products);
-        
-        // Si estamos en la vista JSON, actualizamos también esa vista en vivo
-        if (!document.getElementById('viewJson').style.display || document.getElementById('viewJson').style.display !== 'none') {
-            renderJSON();
-        }
-
+        renderJSON();
     } catch (error) {
-        console.error("Error cargando productos:", error);
+        mostrarToast('error', 'Error conectando con el servidor');
     }
 }
 
+function actualizarDashboard(products) {
+    // 1. Total Productos
+    document.getElementById('statTotalItems').innerText = products.length;
+
+    // 2. Valor Total (Suma de Price * Stock)
+    const totalValue = products.reduce((acc, p) => acc + (p.price * p.stock), 0);
+    document.getElementById('statTotalValue').innerText = 
+        new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalValue);
+
+    // 3. Bajo Stock (Menos de 5 unidades)
+    const lowStockCount = products.filter(p => p.stock < 5).length;
+    const statLowEl = document.getElementById('statLowStock');
+    statLowEl.innerText = lowStockCount;
+    statLowEl.style.color = lowStockCount > 0 ? '#f87171' : 'white';
+}
+
+function filtrarTabla() {
+    const term = document.getElementById('searchInput').value.toLowerCase();
+    const filtrados = currentData.filter(p => 
+        p.name.toLowerCase().includes(term)
+    );
+    renderTable(filtrados);
+}
+
+// --- ACCIONES CRUD MEJORADAS ---
+
 async function guardarProducto() {
     const idInput = document.getElementById('productId');
-    const nameInput = document.getElementById('name');
-    const priceInput = document.getElementById('price');
-    const stockInput = document.getElementById('stock');
-
-    const name = nameInput.value.trim();
-    const price = parseFloat(priceInput.value);
-    const stock = parseInt(stockInput.value);
+    const name = document.getElementById('name').value.trim();
+    const price = parseFloat(document.getElementById('price').value);
+    const stock = parseInt(document.getElementById('stock').value);
 
     if (!name || isNaN(price) || isNaN(stock)) {
-        alert("Completa todos los campos");
+        mostrarToast('warning', 'Por favor completa todos los campos');
         return;
     }
 
@@ -90,59 +69,116 @@ async function guardarProducto() {
         });
 
         if (res.ok) {
+            mostrarToast('success', isEditing ? 'Producto actualizado' : 'Producto agregado');
             limpiarFormulario();
-            cargarProductos(); // Esto recargará ambas vistas
+            cargarProductos();
         } else {
-            alert("Error al guardar");
+            mostrarToast('error', 'Error al guardar');
         }
-    } catch (error) {
-        console.error(error);
-    }
+    } catch (error) { mostrarToast('error', 'Error de red'); }
 }
 
 async function borrarProducto(id) {
-    if (!confirm("¿Eliminar producto?")) return;
-    try {
-        await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
-        cargarProductos();
-    } catch (error) { console.error(error); }
+    // Usamos SweetAlert para confirmación bonita
+    const result = await Swal.fire({
+        title: '¿Estás seguro?',
+        text: "No podrás revertir esto",
+        icon: 'warning',
+        background: '#1e293b',
+        color: '#fff',
+        showCancelButton: true,
+        confirmButtonColor: '#f87171',
+        cancelButtonColor: '#334155',
+        confirmButtonText: 'Sí, borrar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
+            mostrarToast('success', 'Producto eliminado');
+            cargarProductos();
+        } catch (error) { mostrarToast('error', 'Error al borrar'); }
+    }
 }
 
-async function exportarDatos() {
-    const btn = document.getElementById('btnBackup');
-    const originalText = btn.innerText;
-    btn.innerText = "⏳";
-    try {
-        await fetch('/export', { method: 'POST' });
-        alert("✅ Backup guardado en seeds/productos.json");
-    } catch (e) { alert("Error"); } 
-    finally { btn.innerText = originalText; }
-}
-
-// --- UI ---
+// --- UTILS UI ---
 
 function renderTable(products) {
     const tbody = document.getElementById('productTable');
     tbody.innerHTML = '';
 
-    if (!products || products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#666;">Vacío</td></tr>';
+    if (!products.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">No se encontraron resultados</td></tr>';
         return;
     }
 
     products.forEach(p => {
+        // Lógica de Tags de Estado
+        let statusTag = `<span class="tag tag-ok">En Stock</span>`;
+        if (p.stock === 0) statusTag = `<span class="tag tag-out">Agotado</span>`;
+        else if (p.stock < 5) statusTag = `<span class="tag tag-low">Bajo Stock</span>`;
+
         const row = document.createElement('tr');
+        // Efecto de entrada escalonada
+        row.className = 'fade-in'; 
         row.innerHTML = `
-            <td style="color: #fff; font-weight:500;">${p.name}</td>
+            <td style="font-weight:600; color:white;">${p.name}</td>
             <td>$${p.price.toFixed(2)}</td>
             <td>${p.stock}</td>
-            <td class="actions">
-                <button class="icon-btn btn-edit" onclick="prepararEdicion('${p.id}', '${p.name}', ${p.price}, ${p.stock})">✏️</button>
-                <button class="icon-btn btn-delete" onclick="borrarProducto('${p.id}')">🗑️</button>
+            <td>${statusTag}</td>
+            <td style="text-align:right;">
+                <button class="icon-btn btn-edit" onclick="prepararEdicion('${p.id}', '${p.name}', ${p.price}, ${p.stock})">
+                    <i class="ph ph-pencil-simple"></i>
+                </button>
+                <button class="icon-btn btn-delete" onclick="borrarProducto('${p.id}')">
+                    <i class="ph ph-trash"></i>
+                </button>
             </td>
         `;
         tbody.appendChild(row);
     });
+}
+
+function mostrarToast(icon, title) {
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        background: '#334155',
+        color: '#fff',
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+    Toast.fire({ icon: icon, title: title });
+}
+
+function cambiarVista(vista) {
+    const tableDiv = document.getElementById('viewTable');
+    const jsonDiv = document.getElementById('viewJson');
+    const btns = document.querySelectorAll('.toggle-btn');
+    
+    if (vista === 'table') {
+        tableDiv.style.display = 'block';
+        jsonDiv.style.display = 'none';
+        btns[0].classList.add('active');
+        btns[1].classList.remove('active');
+    } else {
+        tableDiv.style.display = 'none';
+        jsonDiv.style.display = 'block';
+        btns[0].classList.remove('active');
+        btns[1].classList.add('active');
+        renderJSON();
+    }
+}
+
+function renderJSON() {
+    const code = document.getElementById('jsonCode');
+    code.textContent = JSON.stringify(currentData, null, 2);
+    if(window.Prism) Prism.highlightElement(code);
 }
 
 function prepararEdicion(id, name, price, stock) {
@@ -153,11 +189,11 @@ function prepararEdicion(id, name, price, stock) {
     document.getElementById('stock').value = stock;
 
     const btn = document.getElementById('saveBtn');
-    btn.innerText = "Actualizar";
-    btn.classList.add('editing');
+    btn.innerHTML = `<i class="ph ph-check-circle"></i> <span>Actualizar</span>`;
+    btn.style.background = 'var(--warning)';
+    btn.style.color = '#1e293b';
     
-    // Si estamos en modo JSON, forzamos la vista de tabla para que vea lo que edita
-    cambiarVista('table');
+    document.querySelector('.form-grid').scrollIntoView({behavior: 'smooth'});
 }
 
 function limpiarFormulario() {
@@ -168,6 +204,14 @@ function limpiarFormulario() {
     document.getElementById('stock').value = '';
 
     const btn = document.getElementById('saveBtn');
-    btn.innerText = "＋ Agregar";
-    btn.classList.remove('editing');
+    btn.innerHTML = `<i class="ph ph-plus-circle"></i> <span>Agregar</span>`;
+    btn.style.background = 'var(--primary)';
+    btn.style.color = 'white';
+}
+
+async function exportarDatos() {
+    try {
+        await fetch('/export', { method: 'POST' });
+        mostrarToast('success', 'Backup JSON guardado en servidor');
+    } catch (e) { mostrarToast('error', 'Error al exportar'); }
 }
