@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventario Pro</title>
+    
     <link rel="stylesheet" href="styles.css">
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
 </head>
 <body>
 
@@ -13,12 +16,13 @@
             <h1>📦 Control de Inventario</h1>
             
             <div class="header-actions">
-                <a href="/products" target="_blank" class="btn-secondary">
-                    👁️ Ver JSON
-                </a>
-                
+                <div class="view-toggle">
+                    <button id="btnViewTable" class="toggle-btn active" onclick="cambiarVista('table')">📋 Tabla</button>
+                    <button id="btnViewJSON" class="toggle-btn" onclick="cambiarVista('json')">​​​​​​​​​​​​{ } JSON</button>
+                </div>
+
                 <button id="btnBackup" class="btn-backup" onclick="exportarDatos()">
-                    ☁️ Guardar Backup (Git)
+                    ☁️ Guardar Backup
                 </button>
             </div>
         </header>
@@ -31,7 +35,7 @@
             <button id="saveBtn" class="btn-save" onclick="guardarProducto()">＋ Agregar</button>
         </div>
 
-        <div class="table-wrapper">
+        <div id="viewTable" class="table-wrapper fade-in">
             <table>
                 <thead>
                     <tr>
@@ -45,11 +49,17 @@
             </table>
         </div>
 
+        <div id="viewJson" class="json-wrapper fade-in" style="display: none;">
+            <pre><code id="jsonCode" class="language-json"></code></pre>
+        </div>
+
         <footer>
             Go + MongoDB + Docker Project
         </footer>
     </div>
 
     <script src="app.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>

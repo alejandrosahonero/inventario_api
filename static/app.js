@@ -1,18 +1,63 @@
 const API_URL = '/products';
 let isEditing = false;
+let currentData = []; // Guardamos los datos aquí para usarlos en ambas vistas
 
-// Inicialización
 document.addEventListener('DOMContentLoaded', () => {
     cargarProductos();
 });
 
-// --- FUNCIONES API ---
+// --- LÓGICA DE VISTAS ---
+
+function cambiarVista(vista) {
+    const tableDiv = document.getElementById('viewTable');
+    const jsonDiv = document.getElementById('viewJson');
+    const btnTable = document.getElementById('btnViewTable');
+    const btnJson = document.getElementById('btnViewJSON');
+
+    if (vista === 'table') {
+        tableDiv.style.display = 'block';
+        jsonDiv.style.display = 'none';
+        
+        btnTable.classList.add('active');
+        btnJson.classList.remove('active');
+    } else {
+        tableDiv.style.display = 'none';
+        jsonDiv.style.display = 'block';
+        
+        btnTable.classList.remove('active');
+        btnJson.classList.add('active');
+        
+        // Renderizamos el JSON al momento de cambiar
+        renderJSON();
+    }
+}
+
+function renderJSON() {
+    const codeBlock = document.getElementById('jsonCode');
+    // Convertimos el objeto a texto con identación de 2 espacios
+    codeBlock.textContent = JSON.stringify(currentData, null, 2);
+    
+    // Le decimos a Prism que vuelva a colorear el código nuevo
+    if (window.Prism) {
+        Prism.highlightElement(codeBlock);
+    }
+}
+
+// --- API ---
 
 async function cargarProductos() {
     try {
         const res = await fetch(API_URL);
         const products = await res.json();
+        
+        currentData = products; // ACTUALIZAMOS LA VARIABLE GLOBAL
         renderTable(products);
+        
+        // Si estamos en la vista JSON, actualizamos también esa vista en vivo
+        if (!document.getElementById('viewJson').style.display || document.getElementById('viewJson').style.display !== 'none') {
+            renderJSON();
+        }
+
     } catch (error) {
         console.error("Error cargando productos:", error);
     }
@@ -29,7 +74,7 @@ async function guardarProducto() {
     const stock = parseInt(stockInput.value);
 
     if (!name || isNaN(price) || isNaN(stock)) {
-        alert("Por favor, completa todos los campos correctamente.");
+        alert("Completa todos los campos");
         return;
     }
 
@@ -46,61 +91,49 @@ async function guardarProducto() {
 
         if (res.ok) {
             limpiarFormulario();
-            cargarProductos();
+            cargarProductos(); // Esto recargará ambas vistas
         } else {
-            alert("Error al guardar en el servidor");
+            alert("Error al guardar");
         }
     } catch (error) {
         console.error(error);
-        alert("Error de conexión");
     }
 }
 
 async function borrarProducto(id) {
-    if (!confirm("¿Seguro que quieres eliminar este producto?")) return;
-
+    if (!confirm("¿Eliminar producto?")) return;
     try {
         await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
         cargarProductos();
-    } catch (error) {
-        console.error(error);
-    }
+    } catch (error) { console.error(error); }
 }
 
 async function exportarDatos() {
     const btn = document.getElementById('btnBackup');
     const originalText = btn.innerText;
-    
+    btn.innerText = "⏳";
     try {
-        btn.innerText = "Guardando...";
-        const res = await fetch('/export', { method: 'POST' });
-        if (res.ok) {
-            alert("✅ Backup guardado en 'seeds/productos.json'. Listo para Git Push.");
-        } else {
-            alert("❌ Error al guardar backup.");
-        }
-    } catch (e) {
-        alert("Error de conexión");
-    } finally {
-        btn.innerText = originalText;
-    }
+        await fetch('/export', { method: 'POST' });
+        alert("✅ Backup guardado en seeds/productos.json");
+    } catch (e) { alert("Error"); } 
+    finally { btn.innerText = originalText; }
 }
 
-// --- FUNCIONES UI ---
+// --- UI ---
 
 function renderTable(products) {
     const tbody = document.getElementById('productTable');
     tbody.innerHTML = '';
 
     if (!products || products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #666;">No hay productos en inventario</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#666;">Vacío</td></tr>';
         return;
     }
 
     products.forEach(p => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td style="font-weight: 500; color: #fff;">${p.name}</td>
+            <td style="color: #fff; font-weight:500;">${p.name}</td>
             <td>$${p.price.toFixed(2)}</td>
             <td>${p.stock}</td>
             <td class="actions">
@@ -123,8 +156,8 @@ function prepararEdicion(id, name, price, stock) {
     btn.innerText = "Actualizar";
     btn.classList.add('editing');
     
-    // Scroll suave hacia el formulario
-    document.querySelector('.form-grid').scrollIntoView({ behavior: 'smooth' });
+    // Si estamos en modo JSON, forzamos la vista de tabla para que vea lo que edita
+    cambiarVista('table');
 }
 
 function limpiarFormulario() {
