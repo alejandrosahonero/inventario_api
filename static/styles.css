@@ -51,6 +51,48 @@ header {
     padding-bottom: 20px;
 }
 
+/* Agrupación de botones a la derecha */
+.header-actions {
+    display: flex;
+    gap: 10px; /* Espacio entre los botones */
+}
+
+/* Estilo para el botón de Backup (el que ya tenías) */
+.btn-backup {
+    background-color: transparent;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: var(--transition);
+}
+.btn-backup:hover {
+    background-color: var(--primary);
+    color: white;
+}
+
+/* NUEVO: Estilo para el botón de Ver JSON */
+.btn-secondary {
+    text-decoration: none; /* Quitar subrayado de enlace */
+    background-color: transparent;
+    border: 1px solid var(--text-muted);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+}
+
+.btn-secondary:hover {
+    border-color: var(--text-main);
+    color: var(--text-main);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
 h1 {
     font-weight: 600;
     letter-spacing: -0.5px;

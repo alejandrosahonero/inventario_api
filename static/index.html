@@ -11,9 +11,16 @@
     <div class="container">
         <header>
             <h1>📦 Control de Inventario</h1>
-            <button id="btnBackup" class="btn-backup" onclick="exportarDatos()">
-                ☁️ Guardar Backup (Git)
-            </button>
+            
+            <div class="header-actions">
+                <a href="/products" target="_blank" class="btn-secondary">
+                    👁️ Ver JSON
+                </a>
+                
+                <button id="btnBackup" class="btn-backup" onclick="exportarDatos()">
+                    ☁️ Guardar Backup (Git)
+                </button>
+            </div>
         </header>
 
         <div class="form-grid">
@@ -34,8 +41,7 @@
                         <th style="text-align: right;">Acciones</th>
                     </tr>
                 </thead>
-                <tbody id="productTable">
-                    </tbody>
+                <tbody id="productTable"></tbody>
             </table>
         </div>
 
