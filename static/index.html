@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario CRUD Completo</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        
+        /* Formulario */
+        .form-group { display: flex; gap: 10px; margin-bottom: 20px; background: #e9ecef; padding: 15px; border-radius: 8px;}
+        input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; color: white; font-weight: bold;}
+        .btn-save { background: #28a745; }
+        .btn-cancel { background: #6c757d; display: none; } /* Oculto por defecto */
+        
+        /* Tabla */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #007bff; color: white; }
+        
+        /* Acciones */
+        .actions { display: flex; gap: 5px; }
+        .btn-edit { background: #ffc107; color: black; padding: 5px 10px; font-size: 12px;}
+        .btn-delete { background: #dc3545; padding: 5px 10px; font-size: 12px;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📦 Gestión de Inventario</h1>
+
+    <div style="text-align: right; margin-bottom: 10px;">
+        <button onclick="exportarDatos()" style="background-color: #6f42c1; width: auto;">💾 Guardar JSON para GitHub</button>
+    </div>
+
+    <div class="form-group">
+        <input type="hidden" id="productId"> <input type="text" id="name" placeholder="Nombre (ej. Laptop)">
+        <input type="number" id="price" placeholder="Precio" step="0.01">
+        <input type="number" id="stock" placeholder="Stock">
+        <button class="btn-save" id="saveBtn" onclick="guardarProducto()">✚ Guardar</button>
+        <button class="btn-cancel" id="cancelBtn" onclick="cancelarEdicion()">Cancelar</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="productTable">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    const API_URL = '/products';
+    let isEditing = false; // Bandera para saber si estamos editando o creando
+
+    // 1. Cargar productos al iniciar
+    document.addEventListener('DOMContentLoaded', cargarProductos);
+
+    async function cargarProductos() {
+        const res = await fetch(API_URL);
+        const products = await res.json();
+        const tbody = document.getElementById('productTable');
+        tbody.innerHTML = ''; // Limpiar tabla
+
+        products.forEach(p => {
+            const row = `
+                <tr>
+                    <td>${p.name}</td>
+                    <td>$${p.price}</td>
+                    <td>${p.stock} u.</td>
+                    <td class="actions">
+                        <button class="btn-edit" onclick="prepararEdicion('${p.id}', '${p.name}', ${p.price}, ${p.stock})">✏️</button>
+                        <button class="btn-delete" onclick="borrarProducto('${p.id}')">🗑️</button>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    }
+
+    async function guardarProducto() {
+        const id = document.getElementById('productId').value;
+        const name = document.getElementById('name').value;
+        const price = parseFloat(document.getElementById('price').value);
+        const stock = parseInt(document.getElementById('stock').value);
+
+        if(!name || !price) return alert("Rellena los campos");
+
+        const data = { name, price, stock };
+
+        if (isEditing) {
+            // --- MODO ACTUALIZAR (PUT) ---
+            await fetch(`${API_URL}?id=${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+        } else {
+            // --- MODO CREAR (POST) ---
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+        }
+
+        cancelarEdicion(); // Resetear formulario
+        cargarProductos(); // Recargar tabla
+    }
+
+    async function borrarProducto(id) {
+        if(!confirm("¿Seguro que quieres borrar este producto?")) return;
+
+        await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
+        cargarProductos();
+    }
+
+    // Funciones auxiliares para la interfaz
+    function prepararEdicion(id, name, price, stock) {
+        isEditing = true;
+        document.getElementById('productId').value = id;
+        document.getElementById('name').value = name;
+        document.getElementById('price').value = price;
+        document.getElementById('stock').value = stock;
+
+        document.getElementById('saveBtn').innerText = "💾 Actualizar";
+        document.getElementById('saveBtn').style.background = "#ffc107";
+        document.getElementById('saveBtn').style.color = "black";
+        document.getElementById('cancelBtn').style.display = "block";
+    }
+
+    function cancelarEdicion() {
+        isEditing = false;
+        document.getElementById('productId').value = '';
+        document.getElementById('name').value = '';
+        document.getElementById('price').value = '';
+        document.getElementById('stock').value = '';
+
+        document.getElementById('saveBtn').innerText = "✚ Guardar";
+        document.getElementById('saveBtn').style.background = "#28a745";
+        document.getElementById('saveBtn').style.color = "white";
+        document.getElementById('cancelBtn').style.display = "none";
+    }
+
+    async function exportarDatos() {
+        try {
+            const res = await fetch('/export', { method: 'POST' });
+            if (res.ok) {
+                alert("¡Éxito! Archivo 'seeds/productos.json' actualizado.\nAhora puedes hacer 'git commit' y 'git push' en tu terminal.");
+            } else {
+                alert("Hubo un error guardando el archivo.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error de conexión");
+        }
+    }
+</script>
+
+</body>
+</html>

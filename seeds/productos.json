@@ -1,0 +1,26 @@
+[
+  {
+    "id": "693b19b2c92bb4e648595f24",
+    "name": "Laptop",
+    "price": 599.99,
+    "stock": 10
+  },
+  {
+    "id": "693b1b8802fa2541218b301a",
+    "name": "iPhone 17",
+    "price": 1400,
+    "stock": 100
+  },
+  {
+    "id": "693b1b9802fa2541218b301b",
+    "name": "Google Pixel 10",
+    "price": 799,
+    "stock": 120
+  },
+  {
+    "id": "693b1ba902fa2541218b301c",
+    "name": "Teclado RGB",
+    "price": 88.9,
+    "stock": 35
+  }
+]
