@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil" // Para leer/escribir archivos
+	"html/template" // <--- IMPORTANTE: Para renderizar HTML
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"sort" // <--- IMPORTANTE: Para ordenar datos en el backend
 	"time"
 
 	"github.com/alejandrosahonero/inventario-api/internal/models"
@@ -21,6 +23,14 @@ import (
 var client *mongo.Client
 var productCollection *mongo.Collection
 const SeedFile = "./seeds/productos.json" // Ubicación del archivo
+
+// Estructura de datos para enviar al Dashboard
+type DashboardData struct {
+	TotalValue   string
+	TopProducts  []models.Product
+	ChartLabels  []string
+	ChartValues  []int
+}
 
 func main() {
 	// --- CONEXIÓN ---
@@ -46,15 +56,85 @@ func main() {
 	seedDatabase()
 
 	// --- RUTAS ---
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/", fs)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+	
+	http.HandleFunc("/", homeHandler)           // Página principal (ahora explícita)
+	http.HandleFunc("/dashboard", dashboardHandler) // <--- NUEVA RUTA
+	
 	http.HandleFunc("/products", productsHandler)
-	http.HandleFunc("/export", exportHandler) // <--- Nueva ruta para el botón
+	http.HandleFunc("/export", exportHandler)
 
 	fmt.Println("Servidor escuchando en puerto 8080...")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		panic(err)
 	}
+}
+
+// Handler para la Home (simplemente sirve el index.html estático)
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, "./static/index.html")
+}
+
+// --- AQUÍ ESTÁ LA MAGIA DE GO ---
+func dashboardHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 1. Traemos TODOS los datos de Mongo (Go procesará los datos, no la DB)
+	cursor, err := productCollection.Find(ctx, bson.M{})
+	if err != nil {
+		http.Error(w, "Error DB", 500)
+		return
+	}
+	var products []models.Product
+	if err = cursor.All(ctx, &products); err != nil {
+		http.Error(w, "Error Decode", 500)
+		return
+	}
+
+	// 2. Lógica de Negocio en Go (Cálculos)
+	var totalVal float64
+	var labels []string
+	var values []int
+
+	for _, p := range products {
+		totalVal += p.Price * float64(p.Stock)
+		labels = append(labels, p.Name)
+		values = append(values, p.Stock)
+	}
+
+	// 3. Algoritmo de Ordenamiento en Go (Sort)
+	// Ordenamos los productos por precio descendente para sacar el TOP 5
+	sort.Slice(products, func(i, j int) bool {
+		return products[i].Price > products[j].Price
+	})
+
+	top5 := products
+	if len(products) > 5 {
+		top5 = products[:5]
+	}
+
+	// 4. Preparamos los datos
+	data := DashboardData{
+		TotalValue:  fmt.Sprintf("$%.2f", totalVal),
+		TopProducts: top5,
+		ChartLabels: labels, // Go pasará esto como array al JS
+		ChartValues: values,
+	}
+
+	// 5. Renderizamos el Template
+	tmpl, err := template.ParseFiles("templates/dashboard.html")
+	if err != nil {
+		http.Error(w, "Error cargando template: "+err.Error(), 500)
+		return
+	}
+
+	// Ejecutamos el template enviándole los datos
+	tmpl.Execute(w, data)
 }
 
 // --- LÓGICA DE IMPORTACIÓN (AL INICIO) ---
